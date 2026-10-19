@@ -255,7 +255,7 @@ definir_itens() {
 
   grupo "Apps"
   item app.flatpaks         f "Apps Flatpak principais instalados"           "c_flatpaks"
-  item app.foliate          f "Foliate: personalizações compatíveis e ativas" "~/.local/bin/verificar-foliate --status | grep -q 'compatível' && ~/.local/bin/verificar-foliate --status | grep -q ATIVAS"
+  item app.foliate          f "Foliate: personalizações compatíveis e ativas" "\$HOME/.local/bin/verificar-foliate --status | grep -q 'compatível' && \$HOME/.local/bin/verificar-foliate --status | grep -q ATIVAS"
   item app.foliate-escuro   f "Foliate: modo escuro"                         "flatpak run --command=gsettings com.github.johnfactotum.Foliate get com.github.johnfactotum.Foliate color-scheme | grep -q 4"
   item app.foliate-vigia    f "Foliate: vigia de atualização ativa"          "systemctl --user is-active verificar-foliate.path"
   item app.xournal-borracha f "Xournal++: botão da caneta = borracha"        "awk '/<data name=\"stylus\">/,/<\\/data>/' $X/settings.xml | grep -q 'value=\"eraser\"'"
@@ -740,7 +740,7 @@ escrever_relatorio() {  # $1 = destino, $2 = título, $3 = arquivo antes (ou vaz
   } > "$dest"
 }
 
-resumo_terminal() {  # $1 = relatório
+resumo_terminal() {  # $1 = relatório, $2 = arquivo antes (ou vazio)
   if [ ${#QUEBROU[@]} -gt 0 ]; then
     echo "  ${VERM}${NEG}✘ ${#QUEBROU[@]} item(ns) pararam de funcionar:${FIM}"
     local id; for id in "${QUEBROU[@]}"; do echo "     - ${B_TIT[$id]}${B_DET[$id]:+ (${B_DET[$id]})}"; done
@@ -748,7 +748,11 @@ resumo_terminal() {  # $1 = relatório
     echo "  ${VERDE}${NEG}✔ Nada parou de funcionar.${FIM}"
   fi
   [ ${#VOLTOU[@]} -eq 0 ] || echo "  ${VERDE}✔ Voltaram a funcionar: $(for id in "${VOLTOU[@]}"; do printf '%s; ' "${B_TIT[$id]}"; done)${FIM}"
-  echo "  Totais: $N_OK OK, $N_FALHA falha(s) (${#JA_FALHAVA[@]} já vinham de antes), $N_AVISO aviso(s)."
+  if [ -n "${2:-}" ]; then
+    echo "  Totais: $N_OK OK, $N_FALHA falha(s) (${#JA_FALHAVA[@]} já vinham de antes), $N_AVISO aviso(s)."
+  else
+    echo "  Totais: $N_OK OK, $N_FALHA falha(s), $N_AVISO aviso(s) (primeiro teste, sem comparação)."
+  fi
   echo "  Relatório: $1"
   echo "  ${NEG}Mande esse arquivo para o Claude.${FIM}"
 }
@@ -791,7 +795,7 @@ conferir_depois() {  # $1 = nome, $2 = texto extra para o relatório; devolve 1 
   escrever_relatorio "$rel" "mudança \"$nome\"" "$antes" "$f" "$extra"
   [ "$antes" != "$DADOS/antes-pendente.tsv" ] || rm -f "$DADOS/antes-pendente.tsv" "$DADOS/antes-pendente.nome"
   guardar "$f"
-  resumo_terminal "$rel"
+  resumo_terminal "$rel" "$antes"
   log "depois \"$nome\": $(contar "$f"); pararam ${#QUEBROU[@]}; relatório $rel"
   [ ${#QUEBROU[@]} -eq 0 ]
 }
@@ -805,7 +809,7 @@ modo_manual() {  # $1 = motivo
   rel="$TM_DOWN/relatorio-teste-mint-$CARIMBO.txt"
   escrever_relatorio "$rel" "$1" "$antes" "$f"
   guardar "$f"
-  resumo_terminal "$rel"
+  resumo_terminal "$rel" "$antes"
   log "manual \"$1\": $(contar "$f"); pararam ${#QUEBROU[@]}"
   [ ${#QUEBROU[@]} -eq 0 ]
 }
