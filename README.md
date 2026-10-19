@@ -138,6 +138,10 @@ When your hardware or system changes (new GPU, kernel update, driver change):
 
 This updates `CLAUDE.md` with current hardware specs, security score, and software versions.
 
+### Automated health check (`teste-mint`)
+
+[`teste-mint/`](teste-mint/README.md) holds the automated test for this notebook's Mint setup (docs in Portuguese). It checks everything before and after each change, after system/Flatpak updates and after login, and writes a report of what stopped working. Install once with `bash teste-mint/teste-mint.sh --instalar`.
+
 ---
 
 ## Updating
