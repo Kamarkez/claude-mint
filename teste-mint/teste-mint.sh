@@ -753,12 +753,12 @@ rodar_todos() {  # $1 = arquivo de saída, $2 = motivo
 # não é conferido (FORA), item que mudou lá usa o resultado de lá e item novo entra no fim do relatório.
 # ---------------------------------------------------------------------------------------------------------
 declare -A LEG_SAIU=() LEG_MUDOU=() LST=()
-LORD=(); LEG_NOTA=""
+LORD=(); LEG_NOTA=""; LEG_ESTOUROU=0
 legado_mudou() { [ -f "$LEGADO" ] && [ "$(sha256sum "$LEGADO" | cut -d' ' -f1)" != "$LEGADO_SHA" ]; }
 legado_id() { printf 'antigo.%s' "$(printf '%s' "$1" | md5sum | cut -c1-8)"; }
 
 legado_preparar() {
-  LEG_SAIU=(); LEG_MUDOU=(); LST=(); LORD=(); LEG_NOTA=""
+  LEG_SAIU=(); LEG_MUDOU=(); LST=(); LORD=(); LEG_NOTA=""; LEG_ESTOUROU=0
   legado_mudou || return 0
   local tipo tit
   while IFS=$'\t' read -r tipo tit; do
@@ -770,16 +770,29 @@ legado_preparar() {
   done < <(py legado "$LEGADO" 2>/dev/null)
   [ -t 2 ] && printf '\r  conferindo o verificar-personalizacoes.sh...' >&2
   legado_rodar
-  [ ${#LORD[@]} -gt 0 ] || LEG_NOTA="o verificar-personalizacoes.sh não respondeu; os itens dele seguem a versão de 15/10"
+  if [ ${#LORD[@]} -eq 0 ]; then
+    LEG_SAIU=()
+    LEG_NOTA="o verificar-personalizacoes.sh não respondeu; os itens dele seguem a versão de 15/10"
+    return 0
+  fi
+  # Só saiu de verdade o título que ele também não mostra ao rodar (pode estar numa linha que a leitura do
+  # arquivo não reconhece, como um chk dentro de outra função ou depois de uma condição): esse conta como mudado.
+  local -A saiu=()
+  for tit in "${!LEG_SAIU[@]}"; do
+    if [ -n "${LST[$tit]+x}" ]; then LEG_MUDOU[$tit]=1; else saiu[$tit]=1; fi
+  done
+  LEG_SAIU=(); for tit in "${!saiu[@]}"; do LEG_SAIU[$tit]=1; done
+  [ "$LEG_ESTOUROU" -eq 0 ] || LEG_NOTA="o verificar-personalizacoes.sh passou de 5 min e foi interrompido; o que ele não chegou a conferir segue a versão de 15/10"
 }
 
 # Roda o verificar-personalizacoes.sh (com o pgrep que não acha o próprio teste) e guarda OK/FALHA por título.
 # Roda direto deste shell (sem subshell, que teria a mesma linha de comando do teste e enganaria o pgrep -f).
 legado_rodar() {
-  local st tit saida="$TMPD/legado.txt"
+  local st tit rc saida="$TMPD/legado.txt"
   LST=(); LORD=()
   TM_PAIS="$TM_PAIS" TM_PG="$(declare -f pgrep)" timeout -k 3 300 bash -c 'eval "$TM_PG"; f=$1; set --; . "$f"' teste-mint "$LEGADO" \
     > "$saida" 2>/dev/null </dev/null 9>&-
+  rc=$?; LEG_ESTOUROU=0; [ $rc -ne 124 ] && [ $rc -ne 137 ] || LEG_ESTOUROU=1
   while IFS=$'\t' read -r st tit; do
     [ -n "${LST[$tit]+x}" ] || LORD+=("$tit")
     LST[$tit]=$st
@@ -832,10 +845,10 @@ comparar() {
 }
 # Um item que acabou de parar ganha até $ESPERA s para voltar sozinho (ex.: ícones reabrindo depois da mudança).
 assentar() {  # $1 = arquivo do depois
-  local espera=0 id i mudou=0 tit
-  while [ ${#QUEBROU[@]} -gt 0 ] && [ "$espera" -lt "$ESPERA" ]; do
+  local fim=$((SECONDS + ESPERA)) id i mudou=0 tit
+  while [ ${#QUEBROU[@]} -gt 0 ] && [ "$SECONDS" -lt "$fim" ]; do
     [ -t 1 ] && printf '  %d item(ns) com falha; esperando %d s para ver se voltam sozinhos...\n' ${#QUEBROU[@]} 10
-    sleep 10; espera=$((espera + 10))
+    sleep 10
     for id in "${QUEBROU[@]}"; do  # item que vem do verificar-personalizacoes.sh: roda ele de novo, uma vez
       i="${IDX[$id]:-}"
       if [ -z "$i" ] || [ -n "${LEG_MUDOU[${I_TIT[$i]}]:-}" ]; then legado_rodar; break; fi
