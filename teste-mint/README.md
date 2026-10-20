@@ -4,7 +4,7 @@ Confere se tudo no Linux Mint do notebook (Galaxy Book, Cinnamon) continua funci
 
 O que ele confere (96 itens, `teste-mint --lista` mostra todos):
 
-- os 74 itens do antigo `~/.local/share/personalizacoes/verificar-personalizacoes.sh` (S-Pen, teclado virtual, LibreOffice no modo tablet, acessibilidade, visual e painel, apps, Hearthstone, Buds3), com os mesmos nomes;
+- os 74 itens do antigo `~/.local/share/personalizacoes/verificar-personalizacoes.sh` (S-Pen, teclado virtual, LibreOffice no modo tablet, acessibilidade, visual e painel, apps, Hearthstone, Buds3), com os mesmos nomes. Se aquele arquivo mudar depois de 15/10, o teste segue a versão nova: os itens novos entram no fim do relatório, os que mudaram lá usam o resultado de lá e os que saíram de lá deixam de ser conferidos (aparecem em "Não são mais conferidos");
 - sistema: espaço em disco, pacotes quebrados, serviços com falha (sistema e usuário), Cinnamon rodando, kernel novo e reinício pendente, internet;
 - área de trabalho: ícones na tela (`nemo-desktop` aberto), Nemo ignorando o Hidamari, Lixeira ao lado da HBO, atalhos apontando para programas que existem;
 - início automático e ajudantes: cada programa do `~/.config/autostart` existe e os scripts de `~/.local/bin` e `~/.local/share/personalizacoes` não têm erro de sintaxe;
@@ -31,7 +31,7 @@ Isso instala o comando `~/.local/bin/teste-mint`, liga o teste automático e já
 | 2 min depois de entrar na sessão | `~/.config/autostart/teste-mint.desktop` | igual ao de cima |
 | Quando você quiser | `teste-mint` | confere e compara com o teste anterior |
 
-Um item que para logo depois da mudança ganha até 60 s para voltar sozinho (por exemplo, os ícones reabrindo) antes de entrar no relatório como "parou de funcionar". O relatório separa o que **parou com esta mudança**, o que **voltou a funcionar**, o que **já falhava antes** e os avisos, e traz os pacotes instalados e os erros do sistema registrados no período.
+Um item que para logo depois da mudança ganha até 60 s para voltar sozinho (por exemplo, os ícones reabrindo) antes de entrar no relatório como "parou de funcionar". O relatório separa o que **parou com esta mudança**, o que **voltou a funcionar**, o que **já falhava antes**, o que **não é mais conferido** e os avisos, e traz os pacotes instalados e os erros do sistema registrados no período.
 
 ## Regra para scripts de mudança
 

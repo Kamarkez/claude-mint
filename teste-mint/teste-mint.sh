@@ -20,14 +20,15 @@
 #   fi
 # O teste só lê: nenhum item muda configuração. Resultados em ~/.local/share/personalizacoes/teste-mint/,
 # relatórios em ~/Downloads/relatorio-teste-mint-<data>.txt, registro em ~/.cache/teste-mint.log.
-# Inclui os 74 itens de ~/.local/share/personalizacoes/verificar-personalizacoes.sh (versão de 15/10/2026);
-# se aquele arquivo mudar, os itens novos dele entram no relatório sozinhos.
+# Inclui os 74 itens de ~/.local/share/personalizacoes/verificar-personalizacoes.sh (versão de 15/10/2026).
+# Se aquele arquivo mudar, o teste segue a versão nova: os itens novos dele entram, os que mudaram lá usam o
+# resultado de lá e os que saíram de lá deixam de ser conferidos (o relatório mostra quais).
 # Saída: 0 = nada parou de funcionar; 1 = algo parou; 2 = uso errado ou outro teste rodando;
 #   no --mudanca, se o COMANDO falhar, sai com o código dele.
 # Criado em 19/10/2026 (thread "Teste automático do Mint", repositório Kamarkez/claude-mint).
 set -uo pipefail
 
-VERSAO="2026-10-19"
+VERSAO="2026-10-20"
 BIN="$HOME/.local/bin/teste-mint"
 EU="$(readlink -f "${BASH_SOURCE[0]}")"
 DADOS="${TESTE_MINT_DADOS:-$HOME/.local/share/personalizacoes/teste-mint}"  # TESTE_MINT_*: só para teste
@@ -54,9 +55,12 @@ morrer() { echo "$*" >&2; exit 2; }
 # detalhe no relatório. Títulos dos 74 itens antigos ficam iguais aos de verificar-personalizacoes.sh.
 # ---------------------------------------------------------------------------------------------------------
 I_ID=(); I_NIVEL=(); I_TIT=(); I_CMD=(); I_GRP=(); GRUPO=""
-declare -A IDX=()
+declare -A IDX=() TIT_IDX=()
 grupo() { GRUPO="$1"; }
-item() { IDX[$1]=${#I_ID[@]}; I_ID+=("$1"); I_NIVEL+=("$2"); I_TIT+=("$3"); I_CMD+=("$4"); I_GRP+=("$GRUPO"); }
+item() {
+  IDX[$1]=${#I_ID[@]}; TIT_IDX[$3]=${#I_ID[@]}
+  I_ID+=("$1"); I_NIVEL+=("$2"); I_TIT+=("$3"); I_CMD+=("$4"); I_GRP+=("$GRUPO")
+}
 
 # ajudantes usados pelos comandos (vão no TM_PRELUDIO para o bash de cada item, não para a mudança)
 g()     { gsettings get "$1" "$2" 2>/dev/null; }
@@ -302,7 +306,7 @@ definir_itens() {
 # ---------------------------------------------------------------------------------------------------------
 escrever_py() {
 cat > "$TM_PY" <<'PY_FIM'
-import ast, glob, os, re, shlex, shutil, subprocess, sys
+import ast, glob, hashlib, os, re, shlex, shutil, subprocess, sys
 
 def det(msg):
     try:
@@ -538,6 +542,115 @@ def apt_desde(desde):
                 print(f"    {k}: {pacotes[:400]}{' ...' if len(pacotes) > 400 else ''}")
     return 0
 
+# Itens do verificar-personalizacoes.sh de 15/10/2026 (já copiados para o teste-mint): impressão digital do
+# comando de cada título. Se o arquivo do Mint mudar, o que saiu ou mudou lá passa a valer aqui também.
+LEGADO_1510 = """
+bf7174d6dc4e Kernel em uso tem o driver Samsung
+0a1c4dabef68 Limite da bateria em 80%
+f092100dfbcb Regra permanente do limite de bateria
+664a6f9cf6d2 Limite dos registros do sistema (200 MB)
+c15b89fc2dff Espera pela rede no boot desativada
+7d8ade50682c casper-md5check silenciado
+afe87b7ab642 Nenhum serviço com falha
+5bafc5eff6f8 Sem proteção de tela por inatividade
+4d9c6ca1aff2 Sem bloqueio automático
+c09879b8ad8b Sem escurecer na bateria
+a671607e3ff1 Cadastro da caneta no libwacom
+d573f40fc91f Caneta no driver Wacom (config)
+18a0585d5d26 Caneta no driver Wacom (em uso)
+b94507991ec2 Menu da S-Pen rodando
+64e273275dab Menu da S-Pen no login
+244de887e16d Caneta/toque presos à tela interna (login)
+cc0451a05408 Onboard rodando (ou fechado por você)
+1b49113dde15 Vigia do teclado rodando e no login
+50788e5b2405 Abrir sozinho ligado
+dc955bb8c87a Filtro de teclado físico ligado
+cbdc9e125d54 Pausa de 5 min
+f15ee85180be Teclado do Cinnamon desligado (evita dois teclados)
+a2033c511bc6 Regra de leitura do sensor de modo tablet
+f306df72d946 Sensor de modo tablet legível
+6f6d0eb59367 Ajudante do modo tablet rodando e no login
+216dcf566a48 Ajudante de toque do LibreOffice rodando e no login
+765283389ea8 Rolagem suave (mouse virtual do ajudante) presente
+d825b728a1df Permissão para criar o mouse virtual (/dev/uinput)
+690e8140adc3 Menu da S-Pen deixa a caneta com o ajudante no LibreOffice
+bc22cc52bf82 Teclado virtual com X de fechar (layout Phone-X)
+0114123d6ecc Macros da Área de trabalho sem aviso (local confiável)
+39d2fb1a4fd2 Acessibilidade ligada na sessão
+eb40cbf239f6 Repassada a apps que se reiniciam sozinhos
+29f682a2c655 Apps Flatpak com acessibilidade (Qt/GTK)
+1a08f5eff8b6 Firefox com rolagem por toque
+1b20848e7f80 Intermediário do Claude
+2e981204a82c Claude aberto com acessibilidade
+5edaf03985d2 Atalho do Claude chama o intermediário
+b0b5adeb69cd Intermediários do Chrome (Chrome + apps web)
+6eb9c5921fc8 Intermediário do Spotify
+e95b6b3982ca Tema Mint-Y-Dark-Aqua
+7a19e35715b8 Ícones Papirus-Dark
+ccff4e520608 Fonte Ubuntu Sans
+8c705e7525de Extensão da lupa/painel ativa e carregada
+a5aad1d7a3f7 Lupa do painel: ícones voltam na hora ao sair (dica não prende)
+98177e940bbd Painel sempre transparente
+ea2d4ef50eaf Blur ativo
+e257fb680d16 Relógio da área de trabalho
+f4f892f83496 Ícones dos apps web (Netflix/HBO)
+396b3bc21959 Ícones por cima do Hidamari (ajudante rodando e no login)
+de14f67a1e19 Foliate: personalizações compatíveis e ativas
+d698779b4ff7 Foliate: modo escuro
+ebcc6c961903 Foliate: vigia de atualização ativa
+8f3b054ffea2 Xournal++: botão da caneta = borracha
+c76c5916ad38 Xournal++: página lisa e comprida
+4f487a21f250 Xournal++: barra Tablet + botão do teclado
+fbb76d1f6a19 Xournal++: permissão para abrir o teclado
+2fe12c084315 Rnote: botão da caneta = borracha temporária
+332ad7290011 Celluloid: regra sem legenda (Eu, Robô)
+33be7b3497f0 Áudio de filmes sem mudo
+3895d17dc5e8 Regra: Hidamari não muta mais os filmes
+f62c06508e76 LocalSend em janela normal
+651e97618e1e qBittorrent padrão para torrents
+a8ffffc03891 Telegram: botões ±10 s no player (rodando e no login)
+5919ac9ed12d Memória comprimida (zram) grande, zstd
+4bbf49e3a0a1 Deck Tracker: atalho e programa
+e85292dc06de Deck Tracker: abre o Battle.net pela Steam antes
+3ca679d4656c Deck Tracker: .NET 4.8 no prefixo do Battle.net
+1e0c501d0bec Arena Helper: atualização diária dos dados ativa
+81248efa777c Configuração de reconexão
+309cdf767c3f Bluetooth ligado
+61fa5d9359be Buds3 pareado
+f7b12f9cb144 Atalho Conectar Buds
+b6a073079069 Comando de backup presente
+"""
+
+def chks(caminho):
+    """Títulos e impressão digital do comando de cada linha chk "Título" "comando" do verificar-personalizacoes.sh."""
+    padrao = re.compile(r'^\s*chk\s+"((?:[^"\\]|\\.)*)"\s*(.*?)\s*$')
+    saida = []
+    with open(caminho, encoding="utf-8", errors="replace") as f:
+        for linha in f:
+            m = padrao.match(linha)
+            if m:
+                saida.append((re.sub(r"\\(.)", r"\1", m.group(1)), hashlib.md5(m.group(2).encode()).hexdigest()[:12]))
+    return saida
+
+def legado(caminho):
+    """Compara o verificar-personalizacoes.sh de agora com o de 15/10: SAIU/MUDOU por título."""
+    antigo = dict(reversed(l.split(" ", 1)) for l in LEGADO_1510.strip().splitlines())
+    try:
+        atual = dict(chks(caminho))
+    except OSError:
+        print("FORMATO\tnão consegui ler o arquivo")
+        return 0
+    achados = sum(1 for t in antigo if t in atual)
+    if achados < len(antigo) // 2:
+        print(f"FORMATO\treconheci só {achados} dos {len(antigo)} itens de 15/10")
+        return 0
+    for t, h in antigo.items():
+        if t not in atual:
+            print(f"SAIU\t{t}")
+        elif atual[t] != h:
+            print(f"MUDOU\t{t}")
+    return 0
+
 if __name__ == "__main__":
     cmd, args = sys.argv[1], sys.argv[2:]
     if cmd == "atalhos":
@@ -550,6 +663,8 @@ if __name__ == "__main__":
         sys.exit(lixeira())
     if cmd == "apt-desde":
         sys.exit(apt_desde(float(args[0])))
+    if cmd == "legado":
+        sys.exit(legado(args[0]))
     sys.exit(2)
 PY_FIM
 }
@@ -601,13 +716,30 @@ rodar_item() {  # $1 = índice; deixa R_ST e R_DET
 
 linha_tsv() { printf '%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" "$5"; }
 
+# Item que mudou no verificar-personalizacoes.sh depois de 15/10: vale o resultado de lá.
+resultado_item() {  # $1 = índice; deixa R_ST e R_DET
+  local i=$1 tit="${I_TIT[$1]}"
+  if [ -n "${LEG_MUDOU[$tit]:-}" ] && [ -n "${LST[$tit]:-}" ]; then
+    R_ST=${LST[$tit]}; R_DET="conferido pelo verificar-personalizacoes.sh (o item mudou lá)"
+    [ "$R_ST" = OK ] || [ "${I_NIVEL[$i]}" != a ] || R_ST=AVISO
+    return 0
+  fi
+  rodar_item "$i"
+  [ -z "${LEG_MUDOU[$tit]:-}" ] || R_DET="o verificar-personalizacoes.sh não respondeu; conferido pela versão de 15/10${R_DET:+; $R_DET}"
+}
+
 rodar_todos() {  # $1 = arquivo de saída, $2 = motivo
   local saida=$1 i n=${#I_ID[@]}
+  legado_preparar
   {
     printf '# versao=%s\n# motivo=%s\n# carimbo=%s\n# epoch=%s\n' "$VERSAO" "$2" "$(date '+%d/%m/%Y %H:%M:%S')" "$(date +%s)"
     for ((i = 0; i < n; i++)); do
       [ -t 2 ] && printf '\r  conferindo %d de %d...' $((i + 1)) "$n" >&2
-      rodar_item "$i"
+      if [ -n "${LEG_SAIU[${I_TIT[$i]}]:-}" ]; then
+        linha_tsv "${I_ID[$i]}" FORA "${I_GRP[$i]}" "${I_TIT[$i]}" "saiu do verificar-personalizacoes.sh"
+        continue
+      fi
+      resultado_item "$i"
       linha_tsv "${I_ID[$i]}" "$R_ST" "${I_GRP[$i]}" "${I_TIT[$i]}" "$R_DET"
     done
     legado_extras
@@ -615,19 +747,52 @@ rodar_todos() {  # $1 = arquivo de saída, $2 = motivo
   [ -t 2 ] && printf '\r%*s\r' 40 '' >&2
 }
 
-# Se o verificar-personalizacoes.sh ganhou itens depois de 15/10, roda ele e traz só os itens que faltam aqui.
-legado_extras() {
-  [ -f "$LEGADO" ] || return 0
-  [ "$(sha256sum "$LEGADO" | cut -d' ' -f1)" = "$LEGADO_SHA" ] && return 0
-  local st tit i conhecido
+# ---------------------------------------------------------------------------------------------------------
+# O verificar-personalizacoes.sh do Mint. Os 74 itens dele de 15/10 já estão acima. Se o arquivo mudou depois
+# (outra sessão do Claude mexeu no Mint e atualizou a verificação), vale a versão nova: item que saiu de lá
+# não é conferido (FORA), item que mudou lá usa o resultado de lá e item novo entra no fim do relatório.
+# ---------------------------------------------------------------------------------------------------------
+declare -A LEG_SAIU=() LEG_MUDOU=() LST=()
+LORD=(); LEG_NOTA=""
+legado_mudou() { [ -f "$LEGADO" ] && [ "$(sha256sum "$LEGADO" | cut -d' ' -f1)" != "$LEGADO_SHA" ]; }
+legado_id() { printf 'antigo.%s' "$(printf '%s' "$1" | md5sum | cut -c1-8)"; }
+
+legado_preparar() {
+  LEG_SAIU=(); LEG_MUDOU=(); LST=(); LORD=(); LEG_NOTA=""
+  legado_mudou || return 0
+  local tipo tit
+  while IFS=$'\t' read -r tipo tit; do
+    case "$tipo" in
+      SAIU) LEG_SAIU[$tit]=1 ;;
+      MUDOU) LEG_MUDOU[$tit]=1 ;;
+      FORMATO) LEG_NOTA="o verificar-personalizacoes.sh mudou de jeito ($tit); os itens antigos seguem a versão de 15/10" ;;
+    esac
+  done < <(py legado "$LEGADO" 2>/dev/null)
+  [ -t 2 ] && printf '\r  conferindo o verificar-personalizacoes.sh...' >&2
+  legado_rodar
+  [ ${#LORD[@]} -gt 0 ] || LEG_NOTA="o verificar-personalizacoes.sh não respondeu; os itens dele seguem a versão de 15/10"
+}
+
+# Roda o verificar-personalizacoes.sh (com o pgrep que não acha o próprio teste) e guarda OK/FALHA por título.
+# Roda direto deste shell (sem subshell, que teria a mesma linha de comando do teste e enganaria o pgrep -f).
+legado_rodar() {
+  local st tit saida="$TMPD/legado.txt"
+  LST=(); LORD=()
+  TM_PAIS="$TM_PAIS" TM_PG="$(declare -f pgrep)" timeout -k 3 300 bash -c 'eval "$TM_PG"; f=$1; set --; . "$f"' teste-mint "$LEGADO" \
+    > "$saida" 2>/dev/null </dev/null 9>&-
   while IFS=$'\t' read -r st tit; do
-    conhecido=0
-    for ((i = 0; i < ${#I_TIT[@]}; i++)); do [ "${I_TIT[$i]}" = "$tit" ] && { conhecido=1; break; }; done
-    [ $conhecido -eq 1 ] && continue
-    [ "$st" = OK ] || st=FALHA
-    linha_tsv "antigo.$(printf '%s' "$tit" | md5sum | cut -c1-8)" "$st" "Itens novos do verificar-personalizacoes.sh" "$tit" ""
-  done < <(timeout 300 bash "$LEGADO" 2>/dev/null </dev/null 9>&- | sed 's/\x1b\[[0-9;]*m//g' \
-           | sed -n 's/^  \(OK\|FALHA\) \+\(.*[^ ]\) *$/\1\t\2/p')
+    [ -n "${LST[$tit]+x}" ] || LORD+=("$tit")
+    LST[$tit]=$st
+  done < <(sed 's/\x1b\[[0-9;]*m//g' "$saida" | sed -n 's/^  \(OK\|FALHA\) \+\(.*[^ ]\) *$/\1\t\2/p')
+}
+
+# Itens que o verificar-personalizacoes.sh ganhou depois de 15/10.
+legado_extras() {
+  local tit
+  for tit in "${LORD[@]}"; do
+    [ -z "${TIT_IDX[$tit]:-}" ] || continue
+    linha_tsv "$(legado_id "$tit")" "${LST[$tit]}" "Itens novos do verificar-personalizacoes.sh" "$tit" ""
+  done
 }
 
 # ---------------------------------------------------------------------------------------------------------
@@ -651,7 +816,7 @@ carregar_depois() {
   done < "$1"
 }
 comparar() {
-  QUEBROU=(); VOLTOU=(); JA_FALHAVA=(); AVISOS=()
+  QUEBROU=(); VOLTOU=(); JA_FALHAVA=(); AVISOS=(); SAIRAM=()
   N_OK=0; N_FALHA=0; N_AVISO=0
   local id a
   for id in "${B_ORDEM[@]}"; do
@@ -659,6 +824,7 @@ comparar() {
     case "${B_ST[$id]}" in
       OK) N_OK=$((N_OK + 1)); [ "$a" = FALHA ] && VOLTOU+=("$id") ;;
       AVISO) N_AVISO=$((N_AVISO + 1)); AVISOS+=("$id") ;;
+      FORA) SAIRAM+=("$id") ;;
       FALHA) N_FALHA=$((N_FALHA + 1))
              if [ "$a" = OK ] || [ "$a" = AVISO ]; then QUEBROU+=("$id"); else JA_FALHAVA+=("$id"); fi ;;
     esac
@@ -666,13 +832,19 @@ comparar() {
 }
 # Um item que acabou de parar ganha até $ESPERA s para voltar sozinho (ex.: ícones reabrindo depois da mudança).
 assentar() {  # $1 = arquivo do depois
-  local espera=0 id i mudou=0
+  local espera=0 id i mudou=0 tit
   while [ ${#QUEBROU[@]} -gt 0 ] && [ "$espera" -lt "$ESPERA" ]; do
     [ -t 1 ] && printf '  %d item(ns) com falha; esperando %d s para ver se voltam sozinhos...\n' ${#QUEBROU[@]} 10
     sleep 10; espera=$((espera + 10))
+    for id in "${QUEBROU[@]}"; do  # item que vem do verificar-personalizacoes.sh: roda ele de novo, uma vez
+      i="${IDX[$id]:-}"
+      if [ -z "$i" ] || [ -n "${LEG_MUDOU[${I_TIT[$i]}]:-}" ]; then legado_rodar; break; fi
+    done
     for id in "${QUEBROU[@]}"; do
-      i="${IDX[$id]:-}"; [ -n "$i" ] || continue
-      rodar_item "$i"; B_ST[$id]=$R_ST; B_DET[$id]=$R_DET; mudou=1
+      i="${IDX[$id]:-}"
+      if [ -n "$i" ]; then resultado_item "$i"
+      else tit="${B_TIT[$id]}"; [ -n "${LST[$tit]:-}" ] || continue; R_ST=${LST[$tit]}; R_DET=""; fi
+      B_ST[$id]=$R_ST; B_DET[$id]=$R_DET; mudou=1
     done
     comparar
   done
@@ -702,6 +874,10 @@ escrever_relatorio() {  # $1 = destino, $2 = título, $3 = arquivo antes (ou vaz
       echo "Comparado com: nada (primeiro teste; as falhas abaixo são o estado atual)"
     fi
     echo "Conferido em: $(ler_meta "$depois" carimbo)"
+    if [ -n "$LEG_NOTA" ]; then echo "Atenção: $LEG_NOTA."
+    elif legado_mudou; then
+      echo "verificar-personalizacoes.sh: versão nova; ${#LEG_MUDOU[@]} item(ns) mudaram lá, ${#LEG_SAIU[@]} saíram e $(grep -c '^antigo\.' "$depois") são novos."
+    fi
     [ -z "$extra" ] || printf '%s\n' "$extra"
     echo
     if [ ${#QUEBROU[@]} -gt 0 ]; then
@@ -709,12 +885,17 @@ escrever_relatorio() {  # $1 = destino, $2 = título, $3 = arquivo antes (ou vaz
     else
       echo "RESULTADO: OK, nada parou de funcionar."
     fi
-    echo "Totais: $N_OK OK, $N_FALHA falha(s), $N_AVISO aviso(s), de ${#B_ORDEM[@]} itens."
+    echo "Totais: $N_OK OK, $N_FALHA falha(s), $N_AVISO aviso(s), de $((${#B_ORDEM[@]} - ${#SAIRAM[@]})) itens."
     echo
     echo "== Pararam de funcionar"; [ ${#QUEBROU[@]} -gt 0 ] && listar FALHA "${QUEBROU[@]}" || echo "  (nenhum)"
     echo
     echo "== Voltaram a funcionar"; [ ${#VOLTOU[@]} -gt 0 ] && listar OK "${VOLTOU[@]}" || echo "  (nenhum)"
     echo
+    if [ ${#SAIRAM[@]} -gt 0 ]; then
+      echo "== Não são mais conferidos (saíram do verificar-personalizacoes.sh: o Mint mudou de propósito)"
+      listar FORA "${SAIRAM[@]}"
+      echo
+    fi
     if [ -n "$antes" ]; then echo "== Já estavam com falha antes (não foi esta mudança)"
     else echo "== Com falha agora (primeiro teste, sem comparação)"; fi
     [ ${#JA_FALHAVA[@]} -gt 0 ] && listar FALHA "${JA_FALHAVA[@]}" || echo "  (nenhum)"
@@ -748,6 +929,7 @@ resumo_terminal() {  # $1 = relatório, $2 = arquivo antes (ou vazio)
     echo "  ${VERDE}${NEG}✔ Nada parou de funcionar.${FIM}"
   fi
   [ ${#VOLTOU[@]} -eq 0 ] || echo "  ${VERDE}✔ Voltaram a funcionar: $(for id in "${VOLTOU[@]}"; do printf '%s; ' "${B_TIT[$id]}"; done)${FIM}"
+  [ ${#SAIRAM[@]} -eq 0 ] || echo "  Não são mais conferidos (saíram do verificar-personalizacoes.sh): $(for id in "${SAIRAM[@]}"; do printf '%s; ' "${B_TIT[$id]}"; done)"
   if [ -n "${2:-}" ]; then
     echo "  Totais: $N_OK OK, $N_FALHA falha(s) (${#JA_FALHAVA[@]} já vinham de antes), $N_AVISO aviso(s)."
   else
